@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web login</title>
+    <link rel="icon" href="favicon.png" type="image/x-icon">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --apple-blue: #007AFF;
+            --orange-red-grad: linear-gradient(135deg, #f52727 0%, #FF8E2D 100%);
+            --ios-gray: #8E8E93;
+            --line-color: #D1D1D6;
+            --input-text: #3b3a3a;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* 背景與畫布 */
+        #bg-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -10; background-size: cover; background-position: center;
+            background-image: linear-gradient(135deg, #fccac3 0%, #b9dafa 100%);
+        }
+        #page-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Logo 容器 */
+        #logo-fixed-wrap {
+            position: fixed; z-index: 50; display: flex; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #main-logo { width: 60px; height: auto; }
+
+        /* 登入卡片 */
+        .login-card {
+            width: 320px; padding: 35px; border-radius: 32px;
+            background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 15px 45px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; gap: 15px; z-index: 10;
+        }
+        .login-card.no-bg { background: transparent !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; }
+
+        /* 獨立分行 Slot */
+        .slot { display: flex; width: 100%; margin-bottom: 5px; }
+        #header-img { display: none; width: 100px; transform-origin: center; }
+        #sub-title { font-size: 1.25rem; font-weight: 700; color: var(--input-text); transform-origin: center; }
+
+        /* iOS Input & Buttons */
+        input[type="text"], input[type="password"] { border: none; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.6); outline: none; }
+        .btn-login { background: var(--orange-red-grad); border: none; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
+        .btn-login:active { transform: scale(0.96);color:white ; }
+
+        /* 自定義面板 (Match Mockup) */
+        .custom-panel {
+            position: fixed; bottom: 20px; right: 20px; width: 260px; max-height: 85vh; 
+            padding: 22px; border-radius: 24px; background: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 1000; overflow-y: auto;
+        }
+        .control-group { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #F2F2F7; }
+        .control-group label { font-size: 12px; font-weight: 700; color: var(--ios-gray); display: block; margin-bottom: 8px; }
+
+        select, .ios-btn {
+            appearance: none; width: 100%; padding: 12px; border-radius: 12px;
+            background: white; border: 1px solid #E5E5EA; font-size: 14px; margin-bottom: 10px; outline: none;
+        }
+        select { background: white url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23C7C7CC' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center; }
+        .ios-btn-blue { background: var(--apple-blue); color: white; border: none; font-weight: 600; }
+
+        /* iOS 線型滑桿設計 */
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px; background: var(--line-color); 
+            border-radius: 2px; outline: none; margin: 15px 0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 24px; height: 24px; background: white; 
+            border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.1);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15); cursor: pointer; transition: transform 0.1s;
+        }
+        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.1); }
+
+        /* iOS Switch */
+        .ios-switch { position: relative; display: inline-block; width: 42px; height: 24px; }
+        .ios-switch input { opacity: 0; width: 0; height: 0; }
+        .slider-round { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E9E9EB; transition: .3s; border-radius: 34px; }
+        .slider-round:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        input:checked + .slider-round { background-color: #34C759; }
+        input:checked + .slider-round:before { transform: translateX(18px); }
+    </style>
+</head>
+<body>
+
+    <div id="bg-container"></div>
+    
+    <div id="page-canvas">
+        <div id="logo-fixed-wrap">
+            <img id="main-logo" src="https://cdn-icons-png.flaticon.com/512/831/831276.png" alt="Logo">
+        </div>
+
+        <div class="login-card" id="login-card">
+            <div id="logo-slot" class="slot"></div>
+            <div id="header-slot" class="slot" style="justify-content: center;">
+                <img id="header-img" src="" alt="Header">
+            </div>
+            <div id="subtitle-slot" class="slot" style="justify-content: center;">
+                <div id="sub-title">車隊管理系統</div>
+            </div>
+            
+            <input type="text" placeholder="帳戶">
+            <input type="password" placeholder="密碼">
+            
+            <div style="display:flex; justify-content: space-between; align-items: center; padding: 0 5px;">
+                <span style="font-size:14px; color:#3a3a3c;">記住帳戶</span>
+                <div id="toggle-area">
+                    <label class="ios-switch"><input type="checkbox"><span class="slider-round"></span></label>
+                </div>
+            </div>
+
+            <button class="btn-login">登入</button>
+        </div>
+    </div>
+
+    <div class="custom-panel">
+        <h3 style="margin: 0 0 15px 0;">自定義介面</h3>
+        
+        <div class="control-group">
+            <label>1. 背景圖片</label>
+            <button class="ios-btn" onclick="document.getElementById('in-bg').click()">上傳背景</button>
+            <input type="file" id="in-bg" hidden onchange="handleImg('bg-container', this, true)">
+            <input type="range" min="100" max="150" value="100" oninput="setS('bg-container', this.value/100)">
+        </div>
+
+        <div class="control-group">
+            <label>2. Logo </label>
+            <button class="ios-btn" onclick="document.getElementById('in-logo').click()">上傳 Logo</button>
+            <input type="file" id="in-logo" hidden onchange="handleImg('main-logo', this, false)">
+            <select onchange="updateLogoPos(this.value)">
+                <option value="p-tc" selected>頁面上方 - 中</option>
+                <option value="p-tl">頁面上方 - 左</option>
+                <option value="c-tl">卡片內 - 左</option>
+                <option value="c-tc">卡片內 - 中</option>
+                <option value="c-tr">卡片內 - 右</option>
+            </select>
+            <input type="range" min="30" max="150" value="60" oninput="document.getElementById('main-logo').style.width=this.value+'px'">
+        </div>
+
+        <div class="control-group">
+            <label>3. 登入卡片底框</label>
+            <select onchange="toggleCard(this.value)">
+                <option value="on">顯示</option>
+                <option value="off">隱藏</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>4. 標題</label>
+            <button class="ios-btn" onclick="document.getElementById('in-h').click()">上傳圖片</button>
+            <input type="file" id="in-h" hidden onchange="handleImg('header-img', this, false)">
+            <select onchange="document.getElementById('header-slot').style.justifyContent=this.value">
+                <option value="flex-start">置左</option>
+                <option value="center" selected>置中</option>
+                <option value="flex-end">置右</option>
+            </select>
+            <input type="range" min="0.5" max="2.0" step="0.1" value="1" oninput="setS('header-img', this.value)">
+        </div>
+
+        <div class="control-group">
+            <label>5. 次標題</label>
+            <select onchange="document.getElementById('subtitle-slot').style.justifyContent=this.value">
+                <option value="flex-start">置左</option>
+                <option value="center" selected>置中</option>
+                <option value="flex-end">置右</option>
+            </select>
+            <input type="range" min="0.5" max="2.0" step="0.1" value="1" oninput="setS('sub-title', this.value)">
+        </div>
+
+        <div class="control-group">
+            <label>6. 記住帳戶</label>
+            <select onchange="updateToggleStyle(this.value)">
+                <option value="ios">iOS Switch</option>
+                <option value="checkbox">方格勾選</option>
+            </select>
+        </div>
+
+        <button class="ios-btn ios-btn-blue" onclick="downloadPNG()">下載設定好的圖片</button>
+    </div>
+
+    <script>
+        // 圖片上傳
+        function handleImg(id, input, isBg) {
+            if (input.files && input.files[0]) {
+                const r = new FileReader();
+                r.onload = e => {
+                    const el = document.getElementById(id);
+                    if(isBg) el.style.backgroundImage = `url('${e.target.result}')`;
+                    else { el.src = e.target.result; el.style.display = 'block'; }
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Logo 定位邏輯 (修正重疊)
+        function updateLogoPos(v) {
+            const logo = document.getElementById('logo-fixed-wrap');
+            const slot = document.getElementById('logo-slot');
+            logo.style = "position: fixed; z-index: 50; display: flex; transition: all 0.4s ease;";
+
+            if (v.startsWith('p')) {
+                document.getElementById('page-canvas').appendChild(logo);
+                logo.style.top = "40px";
+                if (v === 'p-tc') { logo.style.left = "50%"; logo.style.transform = "translateX(-50%)"; }
+                else { logo.style.left = "40px"; logo.style.transform = "none"; }
+            } else {
+                slot.appendChild(logo);
+                logo.style.position = "static"; logo.style.transform = "none";
+                slot.style.justifyContent = (v === 'c-tl') ? 'flex-start' : (v === 'c-tr') ? 'flex-end' : 'center';
+            }
+        }
+
+        // 卡片底框顯示切換
+        function toggleCard(v) {
+            const card = document.getElementById('login-card');
+            if (v === 'off') card.classList.add('no-bg');
+            else card.classList.remove('no-bg');
+        }
+
+        // 記住按鈕樣式切換
+        function updateToggleStyle(v) {
+            const area = document.getElementById('toggle-area');
+            if (v === 'ios') {
+                area.innerHTML = `<label class="ios-switch"><input type="checkbox"><span class="slider-round"></span></label>`;
+            } else {
+                area.innerHTML = `<input type="checkbox" style="width:20px; height:20px; cursor:pointer;">`;
+            }
+        }
+
+        function setS(id, v) { document.getElementById(id).style.transform = `scale(${v})`; }
+
+        // 下載圖片
+        async function downloadPNG() {
+            const panel = document.querySelector('.custom-panel');
+            panel.style.display = 'none';
+            const canvas = document.getElementById('page-canvas');
+            const bg = document.getElementById('bg-container');
+            
+            canvas.prepend(bg);
+            bg.style.position = 'absolute';
+
+            const resCanvas = await html2canvas(canvas, { useCORS: true, scale: 2 });
+            const link = document.createElement('a');
+            link.download = 'FleetPro-UI.png';
+            link.href = resCanvas.toDataURL();
+            link.click();
+
+            panel.style.display = 'block';
+            document.body.prepend(bg);
+            bg.style.position = 'fixed';
+        }
+
+        // 初始設定
+        updateLogoPos('p-tc');
+    </script>
+</body>
+</html>
